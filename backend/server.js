@@ -8,6 +8,23 @@ const port = process.env.PORT || 3001;
 
 app.use(express.json());
 
+async function fetchTeamInfo(teamUrl) {
+    try {
+        const response = await axios.get(teamUrl);
+        const teamInfo = response.data;
+
+        const teamData = {
+            id: teamInfo.id,
+            name: teamInfo.name
+        }
+
+        return teamData;
+    } catch (error) {
+        console.error('Error fetching team information', error);
+        throw new Error('Error fetching team information');
+    }
+}
+
 app.get('/api/nfl-athletes/:athleteId', async (req, res) => {
     try {
         const { athleteId } = req.params;
@@ -21,10 +38,18 @@ app.get('/api/nfl-athletes/:athleteId', async (req, res) => {
         const athleteData = {
             id: athleteInfo.id,
             name: athleteInfo.fullName,
-            team: athleteInfo.team
+            teamsPlayedFor: [],
+            statsLog: athleteInfo.statisticslog
         }
 
-        res.json(athleteInfo);
+        if (athleteInfo.team && athleteInfo.team.$ref) {
+            console.log('test');
+            const teamUrl = athleteInfo.team.$ref;
+            const teamData = fetchTeamInfo(teamUrl);
+            athleteData.teamsPlayedFor.push(teamData);
+        }
+
+        res.json(athleteData);
     } catch (error) {
         console.error('Error fetching NFL teams', error);
         res.status(500).json({success: false, error: 'Internal Server Error'});
