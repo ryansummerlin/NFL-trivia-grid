@@ -8,6 +8,18 @@ const port = process.env.PORT || 3001;
 
 app.use(express.json());
 
+async function fetchStatsLogInfo(statsLogUrl) {
+    try {
+        const response = await axios.get(statsLogUrl);
+        const statsLogInfo = response.data;
+
+        return statsLogInfo;
+    } catch (error) {
+        console.error('Error fetching stats log information', error);
+        throw new Error('Error fetching stats log information');
+    }
+}
+
 async function fetchTeamInfo(teamUrl) {
     try {
         const response = await axios.get(teamUrl);
@@ -38,18 +50,43 @@ app.get('/api/nfl-athletes/:athleteId', async (req, res) => {
         const athleteData = {
             id: athleteInfo.id,
             name: athleteInfo.fullName,
-            teamsPlayedFor: [],
-            statsLog: athleteInfo.statisticslog
+            currentTeam: [],
+            statsLog: athleteInfo.statisticslog,
+            teamsPlayedFor: []
+        }
+
+        const athleteResponseAttributes = {
+            id: athleteData.id,
+            name: athleteData.name,
+            currentTeam: athleteData.currentTeam,
+            teamsPlayedFor: athleteData.teamsPlayedFor
+        }
+
+        if (athleteInfo.statisticslog && athleteInfo.statisticslog.$ref) {
+            const statsLogUrl = athleteInfo.statisticslog.$ref;
+            const statsLogData = await fetchStatsLogInfo(statsLogUrl);
+            athleteData.statsLog = statsLogData;
+        }
+
+        for (let i = 0; i < athleteData.statsLog.entries.length; i++) {
+            let season = athleteData.statsLog.entries[i];
+            for (let j = 0; j < season.statistics.length; j++) {
+                let statsObj = season.statistics[j];
+                if (statsObj.type === 'team') {
+                    const teamUrl = statsObj.team.$ref;
+                    const teamData = await fetchTeamInfo(teamUrl);
+                    if (athleteData.teamsPlayedFor.indexOf(teamData.name) === -1) athleteData.teamsPlayedFor.push(teamData.name);
+                }
+            }
         }
 
         if (athleteInfo.team && athleteInfo.team.$ref) {
-            console.log('test');
             const teamUrl = athleteInfo.team.$ref;
-            const teamData = fetchTeamInfo(teamUrl);
-            athleteData.teamsPlayedFor.push(teamData);
+            const teamData = await fetchTeamInfo(teamUrl);
+            athleteData.currentTeam.push(teamData.name);
         }
 
-        res.json(athleteData);
+        res.json(athleteResponseAttributes);
     } catch (error) {
         console.error('Error fetching NFL teams', error);
         res.status(500).json({success: false, error: 'Internal Server Error'});
