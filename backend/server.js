@@ -94,6 +94,26 @@ app.get('/api/nfl-athletes/:athleteId', async (req, res) => {
 
 });
 
+app.get('api/nfl/players', async (req, res) => {
+    try {
+        const {name} = req.query;
+
+        const players = [
+            {id: 1, name: 'Aaron Rodgers'},
+            {id: 2, name: 'Aaron Donald'}
+        ];
+
+        const matchingPlayers = players.filter((player) => {
+            player.name.toLowerCase().includes(name.toLowerCase());
+        });
+
+        res.json({ success: true, players: matchingPlayers });
+    } catch (error) {
+        console.error('Error searching for NFL players by name', error);
+        res.status(500).json({ success: false, error: 'Internal Server Error'});
+    }
+})
+
 app.listen(port, () => {
     console.log(`Server is running on port ${port}`);
 });
